@@ -111,7 +111,10 @@
     <label for="chipCount">Total Chips:</label>
     <input type="number" id="chipCount" min="0" value="180">
   </div>
-
+  <div class="section">
+    <label for="statExport">Copy Your Settings:</label><br>
+    <textarea id="statExport" rows="12" style="width: 25%; background-color:#222; color:#eee;"></textarea>
+  </div>
   <div class="section">
     <button onclick="runOptimization()">Optimize</button>
   </div>
@@ -451,6 +454,92 @@ function runOptimizer(baseDrone, baseDrill, baseSoccer, totalChips) {
         resultsDiv.appendChild(table);
       }
 
+    // Enforce mutual exclusion for each pair
+    document.getElementById('disableDrone').addEventListener('change', function () {
+      if (!this.checked) document.getElementById('disableForce').checked = true;
+    });
+
+    document.getElementById('disableForce').addEventListener('change', function () {
+      if (!this.checked) document.getElementById('disableDrone').checked = true;
+    });
+
+    document.getElementById('disableDrill').addEventListener('change', function () {
+      if (!this.checked) document.getElementById('disableRocket').checked = true;
+    });
+
+    document.getElementById('disableRocket').addEventListener('change', function () {
+      if (!this.checked) document.getElementById('disableDrill').checked = true;
+    });
+
+    document.getElementById('disableDurian').addEventListener('change', function () {
+      if (!this.checked) document.getElementById('disableSoccer').checked = true;
+    });
+
+    document.getElementById('disableSoccer').addEventListener('change', function () {
+      if (!this.checked) document.getElementById('disableDurian').checked = true;
+    });
+
+  function updateStatExport() {
+  const fields = [
+    'chipCount', 'baseResonanceA', 'baseResonanceB', 'baseResonanceC',
+    'priorityDrone', 'priorityDrill', 'priorityDurian',
+    'critRate', 'critDamage', 'skillDamage', 'bonusPoisoned',
+    'bonusWeakened', 'bonusChilled', 'bonusLacerated',
+    'bonusVulnerable', 'bonusShield'
+  ];
+
+  const disables = [
+    'disableDrone', 'disableForce', 'disableDrill',
+    'disableRocket', 'disableDurian', 'disableSoccer'
+  ];
+
+  let data = [];
+
+  fields.forEach(id => {
+    const val = document.getElementById(id).value;
+    data.push(`${id}=${val}`);
+  });
+
+  disables.forEach(id => {
+    const checked = document.getElementById(id).checked ? 1 : 0;
+    data.push(`${id}=${checked}`);
+  });
+
+  document.getElementById('statExport').value = data.join('&');
+}
+
+function importStatExport() {
+  const text = document.getElementById('statExport').value;
+  const pairs = text.split('&');
+
+  pairs.forEach(pair => {
+    const [key, value] = pair.split('=');
+    const el = document.getElementById(key);
+    if (!el) return;
+    if (el.type === 'checkbox') {
+      el.checked = value === '1';
+    } else {
+      el.value = value;
+    }
+  });
+}
+
+function attachStatExportListeners() {
+  const allInputs = document.querySelectorAll('input');
+  allInputs.forEach(input => {
+    input.addEventListener('input', updateStatExport);
+    input.addEventListener('change', updateStatExport);
+  });
+
+  // Watch for user edits to the textarea
+  document.getElementById('statExport').addEventListener('input', () => {
+    importStatExport();
+  });
+}
+
+// Initialize everything on page load
+attachStatExportListeners();
+updateStatExport();
 
   </script>
 </body>
