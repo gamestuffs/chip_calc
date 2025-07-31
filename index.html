@@ -64,15 +64,20 @@
 <body>
   <h2>Chip Allocation Optimizer</h2>
 
-  <div class="section">
-    <strong>Disable Options:</strong><br>
-    <label><input type="checkbox" id="disableDrone"> Disable Drone</label>
-    <label><input type="checkbox" id="disableForce" checked> Disable Force Field</label><br>
-    <label><input type="checkbox" id="disableDrill"> Disable Drill</label>
-    <label><input type="checkbox" id="disableRocket" checked> Disable Rocket</label><br>
-    <label><input type="checkbox" id="disableDurian"> Disable Durian</label>
-    <label><input type="checkbox" id="disableSoccer" checked> Disable Soccer</label>
-  </div>
+<div class="section">
+  <strong>Disable Options:</strong><br>
+  <label><input type="checkbox" id="disableDrone"> Disable Drone</label>
+  <label><input type="checkbox" id="disableNormalDrone" checked> Disable Normal Drone</label><br>
+
+  <label><input type="checkbox" id="disableDrill"> Disable Drill</label>
+  <label><input type="checkbox" id="disableNormalDrill" checked> Disable Normal Drill</label><br>
+
+  <label><input type="checkbox" id="disableForce" checked> Disable Force Field</label>
+  <label><input type="checkbox" id="disableRocket" checked> Disable Rocket</label><br>
+
+  <label><input type="checkbox" id="disableDurian"> Disable Durian</label>
+  <label><input type="checkbox" id="disableSoccer" checked> Disable Soccer</label>
+</div>
 
   <div class="section">
     <strong>Player Stats:</strong><br>
@@ -219,6 +224,45 @@ function runOptimizer(baseDrone, baseDrill, baseSoccer, totalChips) {
 { resonance: 12000, effect: 'Skill damage +30% (Drone)', type: 'Skill', value: 30 },
 { resonance: 13500, effect: 'Vulnerability effect +20%, Damage to Weakened targets +25% (Drone)', type: 'Weakened', value: 25 },
 { resonance: 15000, effect: 'Single shot damage +50%, Surge Shot +100%, Skill damage +30% (Drone)', type: 'Skill', value: 30 },
+
+// Normal Drone
+{ resonance: 100, effect: 'Destroyer gains 1 attack wingbit (Normal Drone)', type: 'Skill', value: 0 },
+{ resonance: 200, effect: 'Attack wingbit damage +25% (Normal Drone)', type: 'Skill', value: 25 },
+{ resonance: 300, effect: 'Destroyer gains 1 augment wingbit (Normal Drone)', type: 'Skill', value: 0 },
+{ resonance: 450, effect: 'Augment wingbit damage enhancement +10% (Normal Drone)', type: 'Skill', value: 10 },
+{ resonance: 600, effect: 'Attack wingbit attack interval -2s (Normal Drone)', type: 'Skill', value: 15 },
+{ resonance: 900, effect: 'Augment wingbit damage enhancement +10% (Normal Drone)', type: 'Skill', value: 10 },
+{ resonance: 1200, effect: 'Attack wingbit damage +50% (Normal Drone)', type: 'Skill', value: 50 },
+{ resonance: 1650, effect: 'Augment wingbit enhancement interval -1s (Normal Drone)', type: 'Skill', value: 10 },
+{ resonance: 2100, effect: 'Wingbit +5 shots, attack interval -1s (Normal Drone)', type: 'Skill', value: 25 },
+{ resonance: 2550, effect: 'Augment wingbit damage enhancement +30% (Normal Drone)', type: 'Skill', value: 30 },
+{ resonance: 3000, effect: 'Summons 1 extra attack wingbit (Normal Drone)', type: 'Skill', value: 0 },
+{ resonance: 4500, effect: 'Wingbit damage +25%, +5 shots (Normal Drone)', type: 'Skill', value: 25 },
+{ resonance: 6000, effect: 'Augment wingbit enhancement interval -1s (Normal Drone)', type: 'Skill', value: 10 },
+{ resonance: 7500, effect: 'Attack wingbit damage +25% (Normal Drone)', type: 'Skill', value: 25 },
+{ resonance: 9000, effect: 'Augment wingbit damage enhancement +20% (Normal Drone)', type: 'Skill', value: 20 },
+
+
+// Force Field
+{ resonance: 100, effect: 'Smart Targeting: +660% damage every 5s, Crit Rate +5% (Force)', type: 'Crit', value: 5 },
+{ resonance: 200, effect: 'Ion Storm: Slows enemies by 30%, Skill Damage +20% (Force)', type: 'Skill', value: 20 },
+{ resonance: 300, effect: 'Energy Fission: +5% Crit Rate, +15% Crit Damage, +20% Vulnerability inflicted (Force)', type: 'Crit', value: 15 },
+{ resonance: 450, effect: 'Smart Targeting damage +100%, Crit Rate +5% (Force)', type: 'Crit', value: 5 },
+{ resonance: 600, effect: 'Ion Storm Slow duration +1s, Skill Damage +20% (Force)', type: 'Skill', value: 20 },
+{ resonance: 900, effect: 'Energy Fission: +5% Crit Rate, +15% Crit Damage, +20% Vulnerability inflicted (Force)', type: 'Vulnerable', value: 20 },
+{ resonance: 1200, effect: 'Antimatter Focus: +5% damage in small mob fights, Skill Damage +10% (Force)', type: 'Skill', value: 10 },
+{ resonance: 1650, effect: 'Smart Targeting damage +50%, Crit Rate +5% (Force)', type: 'Crit', value: 5 },
+{ resonance: 2100, effect: 'Energy Fission: +5% Crit Rate, +10% Crit Damage, +25% Vulnerability inflicted (Force)', type: 'Vulnerable', value: 25 },
+{ resonance: 2550, effect: 'Ion Storm Slow duration +1s, Skill Damage +10% (Force)', type: 'Skill', value: 10 },
+{ resonance: 3000, effect: 'Energy Fission: +5% Crit Rate, +10% Crit Damage, +25% Vulnerability inflicted (Force)', type: 'Vulnerable', value: 25 },
+{ resonance: 4500, effect: 'Antimatter Focus damage +5%, Skill Damage +10% (Force)', type: 'Skill', value: 10 },
+{ resonance: 6000, effect: 'Smart Targeting damage +50%, Crit Rate +5% (Force)', type: 'Crit', value: 5 },
+{ resonance: 7500, effect: 'Ion Storm Slow duration +30%, Crit Damage +20% (Force)', type: 'Crit', value: 20 },
+{ resonance: 9000, effect: 'Antimatter Focus damage +10%, Skill Damage +10% (Force)', type: 'Skill', value: 10 },
+{ resonance: 10500, effect: 'Smart Targeting damage +150%, Crit Rate +15% (Force)', type: 'Crit', value: 15 },
+{ resonance: 12000, effect: 'Ion Storm Slow duration +20%, Crit Damage +35% (Force)', type: 'Crit', value: 35 },
+{ resonance: 13500, effect: 'Antimatter Focus damage +30%, Skill Damage +40% (Force)', type: 'Skill', value: 40 },
+{ resonance: 15000, effect: 'Energy Fission: +5% Crit Rate, +5% Crit Damage, +45% Vulnerability inflicted (Force)', type: 'Vulnerable', value: 45 },
 
 
 // DURIAN full resonance path
