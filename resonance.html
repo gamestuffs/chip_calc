@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chip Allocation Optimizer</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background-color: #111;
+      color: #eee;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+    label {
+      margin-right: 10px;
+      display: inline-block;
+      width: 300px;
+    }
+    input[type="number"], select {
+      width: 80px;
+      background-color: #222;
+      color: #eee;
+      border: 1px solid #555;
+    }
+    button {
+      background-color: #444;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #666;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+      color: #eee;
+    }
+    th, td {
+      border: 1px solid #555;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #222;
+    }
+    .effects-cell {
+      text-align: left;
+    }
+    .Skill { color: #7feeff; }
+    .Crit { color: #ff7fbf; }
+    .Weakened { color: #ffaa00; }
+    .Poisoned { color: #55ff55; }
+    .Vulnerable { color: #ff5555; }
+    .Shield { color: #aaaaff; }
+    .Chilled { color: #00ffff; }
+    .Lacerated { color: #ff8844; }
+  </style>
+</head>
+<body>
+  <h2>Chip Allocation Optimizer</h2>
+
+  <div class="section">
+    <strong>Disable Options:</strong><br>
+    <label><input type="checkbox" id="disableDrone"> Disable Drone</label>
+    <label><input type="checkbox" id="disableForce" checked> Disable Force Field</label><br>
+    <label><input type="checkbox" id="disableDrill"> Disable Drill</label>
+    <label><input type="checkbox" id="disableRocket" checked> Disable Rocket</label><br>
+    <label><input type="checkbox" id="disableDurian"> Disable Durian</label>
+    <label><input type="checkbox" id="disableSoccer" checked> Disable Soccer</label>
+  </div>
+
+  <div class="section">
+    <strong>Player Stats:</strong><br>
+    <label>Crit Rate (%)</label><input type="number" id="critRate" value="201"><br>
+    <label>Crit Damage (%)</label><input type="number" id="critDamage" value="660"><br>
+    <label>Skill Damage (%)</label><input type="number" id="skillDamage" value="610"><br>
+    <label>Bonus vs Poisoned Targets (%)</label><input type="number" id="bonusPoisoned" value="110"><br>
+    <label>Bonus vs Weakened Targets (%)</label><input type="number" id="bonusWeakened" value="800"><br>
+    <label>Bonus vs Chilled Targets (%)</label><input type="number" id="bonusChilled" value="190"><br>
+    <label>Bonus vs Lacerated Targets (%)</label><input type="number" id="bonusLacerated" value="175"><br>
+    <label>Bonus vs Vulnerable Targets (%)</label><input type="number" id="bonusVulnerable" value="0"><br>
+    <label>Bonus vs Shield Targets (%)</label><input type="number" id="bonusShield" value="281"><br>
+  </div>
+
+  <div class="section">
+    <strong>Base Resonance per Tech Part:</strong><br>
+    <label>Base Resonance (Drone / Force Field)</label>
+    <input type="number" id="baseResonanceA" min="50" max="3000" value="50"><br>
+    <label>Base Resonance (Drill / Rocket)</label>
+    <input type="number" id="baseResonanceB" min="50" max="3000" value="50"><br>
+    <label>Base Resonance (Durian / Soccer)</label>
+    <input type="number" id="baseResonanceC" min="50" max="3000" value="50"><br>
+  </div>
+
+  <div class="section">
+    <strong>Part Priority Weights (higher = more important):</strong><br>
+    <label>Drone / Force Priority</label>
+    <input type="number" id="priorityDrone" value="1.7" step="0.1"><br>
+    <label>Drill / Rocket Priority</label>
+    <input type="number" id="priorityDrill" value="1.05" step="0.1"><br>
+    <label>Durian / Soccer Priority</label>
+    <input type="number" id="priorityDurian" value="0.4" step="0.1"><br>
+  </div>
+
+  <div class="section">
+    <label for="chipCount">Total Chips:</label>
+    <input type="number" id="chipCount" min="0" value="180">
+  </div>
+
+  <div class="section">
+    <button onclick="runOptimization()">Optimize</button>
+  </div>
+  <div class="section" id="results"></div>
+
+  <script>
+
+
+const multMap = {
+  0:1.0, 1:1.2, 2:1.4, 4:1.6, 6:1.8,
+  9:2.0, 12:2.2, 16:2.4, 20:2.6, 25:2.8,
+  30:3.0, 36:3.2, 42:3.4, 48:3.6, 54:3.8,
+  60:4.0, 66:4.2, 72:4.4, 78:4.6, 84:4.8,
+  90:5.0
+};
+
+const thresholds = [900,1200,1650,2100,2550,3000,4500,6000,7500,9000,10500,12000,13500,15000];
+
+function getTargets(resonance) {
+  let t = 0;
+  for (let val of thresholds) {
+    if (resonance >= val) t = val;
+    else break;
+  }
+  return t;
+}
+
+function getChipCombos(totalChips) {
+  const allowed = [0,1,2,4,6,9,12,16,20,25,30,36,42,48,54,60,66,72,78,84,90];
+  const combos = [];
+  for (let d of allowed) {
+    if (d > totalChips) continue;
+    for (let r of allowed) {
+      if (d + r > totalChips) continue;
+      for (let s of allowed) {
+        let sum = d + r + s;
+        if (sum <= totalChips) {
+          combos.push({ d, r, s, rem: totalChips - sum });
+        }
+      }
+    }
+  }
+  return combos;
+}
+
+function paretoFilter(results) {
+  return results.filter((a, i) => {
+    return !results.some((b, j) => {
+      if (i === j) return false;
+      return (
+        (b.tD > a.tD || b.tR > a.tR || b.tS > a.tS) &&
+        (b.tD >= a.tD && b.tR >= a.tR && b.tS >= a.tS)
+      );
+    });
+  });
+}
+
+function runOptimizer(baseDrone, baseDrill, baseSoccer, totalChips) {
+  const combos = getChipCombos(totalChips);
+  const results = [];
+
+  for (let combo of combos) {
+    const resD = baseDrone * multMap[combo.d];
+    const resR = baseDrill * multMap[combo.r];
+    const resS = baseSoccer * multMap[combo.s];
+    const tD = getTargets(resD);
+    const tR = getTargets(resR);
+    const tS = getTargets(resS);
+
+    results.push({
+      chips: combo,
+      resD: Math.round(resD),
+      resR: Math.round(resR),
+      resS: Math.round(resS),
+      tD, tR, tS
+    });
+  }
+
+  return paretoFilter(results);
+}
+
+
+    const dummyEffects = [
+      
+  //Drone 
+{ resonance: 100, effect: 'Skill damage +20% (Drone)', type: 'Skill', value: 20 },
+{ resonance: 200, effect: 'Vulnerability +15% from Forcefield (Drone)', type: 'Vulnerable', value: 15 },
+{ resonance: 300, effect: 'Damage to Weakened targets +20% (Drone)', type: 'Weakened', value: 20 },
+{ resonance: 450, effect: 'Damage to Weakened targets +10% (Drone)', type: 'Weakened', value: 10 },
+{ resonance: 600, effect: 'Skill damage +25%, Damage to Weakened targets +20% (Drone)', type: 'Skill', value: 25 },
+{ resonance: 900, effect: 'Forcefield inflicts Vulnerability every second (Drone)', type: 'Vulnerable', value: 15 },
+{ resonance: 1200, effect: 'Damage to Weakened targets +15% (Drone)', type: 'Weakened', value: 15 },
+{ resonance: 1650, effect: 'Skill damage +15% (Drone)', type: 'Skill', value: 15 },
+{ resonance: 2100, effect: 'Vulnerability effect +15% (Drone)', type: 'Vulnerable', value: 15 },
+{ resonance: 2550, effect: 'Weaken duration increased, Damage to Weakened targets +15% (Drone)', type: 'Weakened', value: 15 },
+{ resonance: 3000, effect: 'Skill damage +15% (Drone)', type: 'Skill', value: 15 },
+{ resonance: 4500, effect: 'Missile count +5%, single shot damage +35% (Drone)', type: 'Skill', value: 35 },
+{ resonance: 6000, effect: 'Vulnerability effect +15% (Drone)', type: 'Vulnerable', value: 15 },
+{ resonance: 7500, effect: 'Damage to Weakened targets +20% (Drone)', type: 'Weakened', value: 20 },
+{ resonance: 9000, effect: 'Skill damage +30% (Drone)', type: 'Skill', value: 30 },
+{ resonance: 10500, effect: 'Vulnerability effect +20%, Damage to Weakened targets +25% (Drone)', type: 'Weakened', value: 25 },
+{ resonance: 12000, effect: 'Skill damage +30% (Drone)', type: 'Skill', value: 30 },
+{ resonance: 13500, effect: 'Vulnerability effect +20%, Damage to Weakened targets +25% (Drone)', type: 'Weakened', value: 25 },
+{ resonance: 15000, effect: 'Single shot damage +50%, Surge Shot +100%, Skill damage +30% (Drone)', type: 'Skill', value: 30 },
+
+
+// DURIAN full resonance path
+{ resonance: 100, effect: 'Transgenic Caltrops trigger EM explosion every 2s (Durian)', type: 'Skill', value: 0 },
+{ resonance: 200, effect: 'Overload EM explosion +50% damage (Durian)', type: 'Skill', value: 50 },
+{ resonance: 300, effect: 'Overload EM explosion inflicts Poison 20s (Durian)', type: 'Poisoned', value: 10 },
+{ resonance: 450, effect: 'Transgenic Caltrops damage +35% (Durian)', type: 'Skill', value: 35 },
+{ resonance: 600, effect: 'Transgenic Caltrops damage +40% (Durian)', type: 'Skill', value: 40 },
+{ resonance: 900, effect: 'Transgenic Caltrops damage +45%, trigger boost +50% vs Poisoned (Durian)', type: 'Poisoned', value: 50 },
+{ resonance: 1200, effect: 'EM explosion damage +50% (Durian)', type: 'Skill', value: 50 },
+{ resonance: 1650, effect: 'Transgenic Caltrops damage +10% (Durian)', type: 'Skill', value: 10 },
+{ resonance: 2100, effect: 'Shield damage boost +10% (Durian)', type: 'Shield', value: 10 },
+{ resonance: 2550, effect: 'Skill damage mutation +25% (Durian)', type: 'Skill', value: 25 },
+{ resonance: 3000, effect: 'Lightning ball damage +30%, Poisoned boost +15% (Durian)', type: 'Poisoned', value: 15 },
+{ resonance: 4500, effect: 'Skill damage mutation +30% (Durian)', type: 'Skill', value: 30 },
+{ resonance: 6000, effect: 'EM +45%, Overload +45%, shield +10% (Durian)', type: 'Shield', value: 10 },
+{ resonance: 7500, effect: 'Poisoned boost +15% (Durian)', type: 'Poisoned', value: 15 },
+{ resonance: 9000, effect: 'Lightning ball damage +100%, Poisoned boost +10% (Durian)', type: 'Poisoned', value: 10 },
+{ resonance: 10500, effect: 'Lightning ball damage +100%, Poisoned boost +15% (Durian)', type: 'Poisoned', value: 15 },
+{ resonance: 12000, effect: 'Vulnerability +7.5% (Durian)', type: 'Vulnerable', value: 7.5 },
+{ resonance: 13500, effect: 'Transgenic Caltrops damage +25%, Skill mutation +65% (Durian)', type: 'Skill', value: 65 },
+{ resonance: 15000, effect: 'Overload EM explosion damage +75%, Poisoned boost +30% (Durian)', type: 'Poisoned', value: 30 },
+
+
+// DRILL full resonance path
+{ resonance: 100, effect: 'Fire Whistleshot Damage +18% (Drill)', type: 'Skill', value: 18 },
+{ resonance: 200, effect: 'Damage to Chilled targets +30% (Drill)', type: 'Chilled', value: 30 },
+{ resonance: 300, effect: 'Ice Whistleshot damage +18% (Drill)', type: 'Skill', value: 18 },
+{ resonance: 450, effect: 'Crit Damage +20% (Drill)', type: 'Crit', value: 20 },
+{ resonance: 600, effect: 'Fire Bomb Damage +40% (Drill)', type: 'Skill', value: 40 },
+{ resonance: 900, effect: 'Extra damage to Lacerated targets +30% (Drill)', type: 'Lacerated', value: 30 },
+{ resonance: 1200, effect: 'Fire Whistleshot damage +18% (Drill)', type: 'Skill', value: 18 },
+{ resonance: 1650, effect: 'Crit Damage +20% (Drill)', type: 'Crit', value: 20 },
+{ resonance: 2100, effect: 'Fire Whistleshot damage +15% after Ice hit (Drill)', type: 'Skill', value: 15 },
+{ resonance: 2550, effect: 'Damage to Chilled targets +20% (Drill)', type: 'Chilled', value: 20 },
+{ resonance: 3000, effect: 'Ice Whistleshot damage +60% after Fire hit (Drill)', type: 'Skill', value: 60 },
+{ resonance: 4500, effect: 'Shield Damage Boost +20% (Drill)', type: 'Shield', value: 20 },
+{ resonance: 6000, effect: 'Fire Bomb Damage +30% (Drill)', type: 'Skill', value: 30 },
+{ resonance: 7500, effect: 'Extra damage to Lacerated targets +30% (Drill)', type: 'Lacerated', value: 30 },
+{ resonance: 9000, effect: 'Max Ice Focus stacks +1, Extra damage to Lacerated targets +30% (Drill)', type: 'Lacerated', value: 30 },
+{ resonance: 10500, effect: 'Crit Damage +30% (Drill)', type: 'Crit', value: 30 },
+{ resonance: 12000, effect: 'Ice Whistleshot damage +18%, Damage to Chilled targets +10% (Drill)', type: 'Chilled', value: 10 },
+{ resonance: 13500, effect: 'Extra damage to Lacerated targets +20% (Drill)', type: 'Lacerated', value: 20 },
+{ resonance: 15000, effect: 'Fire Whistleshot damage +45%, Damage to Chilled targets +10% (Drill)', type: 'Chilled', value: 10 },
+
+
+// Soccer full resonance path
+{ resonance: 100, effect: 'Damage to Chilled targets +25% (Soccer)', type: 'Chilled', value: 25 },
+{ resonance: 200, effect: 'Shield damage boost +10% (Soccer)', type: 'Shield', value: 10 },
+{ resonance: 300, effect: 'Super Soccer Ball explosion on impact (Soccer)', type: 'Skill', value: 0 },
+{ resonance: 450, effect: 'Crit Damage +30% (Soccer)', type: 'Crit', value: 30 },
+{ resonance: 600, effect: 'Shield damage boost +10%, damage to Chilled targets +25% (Soccer)', type: 'Chilled', value: 25 },
+{ resonance: 900, effect: 'Super Soccer Ball explosion damage +100%, Crit Damage +30% (Soccer)', type: 'Crit', value: 30 },
+{ resonance: 1200, effect: 'Hi-Energy: Crit Damage +10% (Soccer)', type: 'Crit', value: 10 },
+{ resonance: 1650, effect: 'Protection: Shield damage boost +10% (Soccer)', type: 'Shield', value: 10 },
+{ resonance: 2100, effect: 'Hoarfrost: damage to Chilled targets +10% (Soccer)', type: 'Chilled', value: 10 },
+{ resonance: 2550, effect: 'Hi-Energy additional Crit Damage +15% (Soccer)', type: 'Crit', value: 15 },
+{ resonance: 3000, effect: 'Protection additional Shield damage boost +15% (Soccer)', type: 'Shield', value: 15 },
+{ resonance: 4500, effect: 'Hoarfrost additional damage to Chilled targets +15% (Soccer)', type: 'Chilled', value: 15 },
+{ resonance: 6000, effect: 'Protection +15% Shield damage boost, Hoarfrost +15% Chilled damage (Soccer)', type: 'Shield', value: 15 },
+{ resonance: 7500, effect: 'Super Soccer Ball explosion damage +100%, Hi-Energy +15% Crit Damage (Soccer)', type: 'Crit', value: 15 },
+{ resonance: 9000, effect: 'Hoarfrost +20% Chilled damage, Hi-Energy +20% Crit Damage (Soccer)', type: 'Crit', value: 20 },
+{ resonance: 10500, effect: 'Hoarfrost +35% Chilled damage (Soccer)', type: 'Chilled', value: 35 },
+{ resonance: 12000, effect: 'Protection +20% Shield damage boost (Soccer)', type: 'Shield', value: 20 },
+{ resonance: 13500, effect: 'Hoarfrost +35% Chilled damage, Hi-Energy +30% Crit Damage (Soccer)', type: 'Crit', value: 30 },
+{ resonance: 15000, effect: 'Protection +20% Shield damage boost, Hi-Energy +30% Crit Damage (Soccer)', type: 'Shield', value: 20 },
+      
+    ];
+
+    function getResonance(chips, base) {
+      const multiplier = multMap[chips] || 0;
+      const resonance = Math.floor(base * multiplier);
+    }
+    
+    function getSummedEffects(resonance, keywords, weights) {
+    const sumMap = {};
+    dummyEffects.forEach(e => {
+      if (keywords.some(k => e.effect.includes(k)) && resonance >= e.resonance) {
+        const weight = weights[e.type] || 1;
+        sumMap[e.type] = (sumMap[e.type] || 0) + e.value * weight;
+      }
+    });
+    return Object.entries(sumMap)
+      .map(([type, val]) => `<span class="${type}">${type}: +${val.toFixed(1)}%</span>`)
+      .join('<br>');
+      }
+//        function calculateWeightedEffectScore(resonances, weights) {
+//      const [resA, resB, resC] = resonances;
+//      let score = 0;
+//      dummyEffects.forEach(e => {
+//        if (
+//          (e.effect.includes('(Drone)') && resA >= e.resonance) ||
+//          (e.effect.includes('(Force') && resA >= e.resonance) ||
+//          (e.effect.includes('(Drill)') && resB >= e.resonance) ||
+//          (e.effect.includes('(Rocket)') && resB >= e.resonance) ||
+//          (e.effect.includes('(Durian)') && resC >= e.resonance) ||
+//          (e.effect.includes('(Soccer)') && resC >= e.resonance)
+//        ) {
+//          const weight = weights[e.type] || 1;
+//          score += e.value * weight;
+//        }
+//      });
+//      return score;
+//    }
+
+//      function calculateWeightedEffectScore(resonances, weights) {
+//      const [resA, resB, resC] = resonances;
+//      let score = 0;//
+
+//      dummyEffects.forEach(e => {
+//        let partMultiplier = 1;
+//        if ((e.effect.includes('(Drone)') || e.effect.includes('(Force'))) {
+//          if (resA >= e.resonance) partMultiplier = 1.3;  // drone priority boost
+//        } else if ((e.effect.includes('(Drill)') || e.effect.includes('(Rocket)'))) {
+//          if (resB >= e.resonance) partMultiplier = 1.15; // drill secondary priority
+//        } else if ((e.effect.includes('(Durian)') || e.effect.includes('(Soccer)'))) {
+//          if (resC >= e.resonance) partMultiplier = 1.0;  // no boost
+//        }//
+
+//        if (resA >= e.resonance || resB >= e.resonance || resC >= e.resonance) {
+//          const weight = weights[e.type] || 1;
+//          score += e.value * weight * partMultiplier;
+//        }
+//      });//
+
+//      return score;
+//      }
+
+      function calculateWeightedEffectScore(resonances, weights, partPriority) {
+        const [resA, resB, resC] = resonances;
+        let score = 0;
+
+        dummyEffects.forEach(e => {
+          let partMultiplier = 1;
+
+          if ((e.effect.includes('(Drone)') || e.effect.includes('(Force'))) {
+            if (resA >= e.resonance) partMultiplier = partPriority.A;
+          } else if ((e.effect.includes('(Drill)') || e.effect.includes('(Rocket)'))) {
+            if (resB >= e.resonance) partMultiplier = partPriority.B;
+          } else if ((e.effect.includes('(Durian)') || e.effect.includes('(Soccer)'))) {
+            if (resC >= e.resonance) partMultiplier = partPriority.C;
+          }
+
+          if (resA >= e.resonance || resB >= e.resonance || resC >= e.resonance) {
+            const weight = weights[e.type] || 1;
+            score += e.value * weight * partMultiplier;
+          }
+        });
+
+        return score;
+      }
+
+
+      function runOptimization() {
+        const chipCount = parseInt(document.getElementById('chipCount').value);
+        const baseValues = [
+          parseInt(document.getElementById('baseResonanceA').value),
+          parseInt(document.getElementById('baseResonanceB').value),
+          parseInt(document.getElementById('baseResonanceC').value)
+        ];
+        const partPriority = {
+          A: parseFloat(document.getElementById('priorityDrone').value) || 1,
+          B: parseFloat(document.getElementById('priorityDrill').value) || 1,
+          C: parseFloat(document.getElementById('priorityDurian').value) || 1
+        };
+        const stats = {
+          skillDamage: parseFloat(document.getElementById('skillDamage').value),
+          critDamage: parseFloat(document.getElementById('critDamage').value),
+          bonusPoisoned: parseFloat(document.getElementById('bonusPoisoned').value),
+          bonusWeakened: parseFloat(document.getElementById('bonusWeakened').value),
+          bonusChilled: parseFloat(document.getElementById('bonusChilled').value),
+          bonusLacerated: parseFloat(document.getElementById('bonusLacerated').value),
+          bonusVulnerable: parseFloat(document.getElementById('bonusVulnerable').value),
+          bonusShield: parseFloat(document.getElementById('bonusShield').value)
+        };
+        const partFlags = {
+          drone: !document.getElementById('disableDrone').checked,
+          force: !document.getElementById('disableForce').checked,
+          drill: !document.getElementById('disableDrill').checked,
+          rocket: !document.getElementById('disableRocket').checked,
+          durian: !document.getElementById('disableDurian').checked,
+          soccer: !document.getElementById('disableSoccer').checked
+        };
+
+        const partCKeywords = partFlags.durian ? ['(Durian)'] : partFlags.soccer ? ['(Soccer)'] : [];
+        const partBKeywords = partFlags.drill ? ['(Drill)'] : partFlags.rocket ? ['(Rocket)'] : [];
+        const partAKeywords = partFlags.drone ? ['(Drone)'] : partFlags.force ? ['(Force'] : [];
+
+        const statWeights = {
+          Skill: 1 + stats.skillDamage / 100,
+          Crit: 1 + stats.critDamage / 100,
+          Poisoned: 1 + stats.bonusPoisoned / 100,
+          Weakened: 1 + stats.bonusWeakened / 100,
+          Chilled: 1 + stats.bonusChilled / 100,
+          Lacerated: 1 + stats.bonusLacerated / 100,
+          Vulnerable: 1 + stats.bonusVulnerable / 100,
+          Shield: 1 + stats.bonusShield / 100
+        };
+
+        const allResults = runOptimizer(baseValues[0], baseValues[1], baseValues[2], chipCount);
+        allResults.forEach(r => {
+          r.score = calculateWeightedEffectScore([r.resD, r.resR, r.resS], statWeights, partPriority);
+          r.effects = {
+            a: getSummedEffects(r.resD, partAKeywords, statWeights),
+            b: getSummedEffects(r.resR, partBKeywords, statWeights),
+            c: getSummedEffects(r.resS, partCKeywords, statWeights)
+          };
+        });
+
+        allResults.sort((a, b) => b.score - a.score);
+        const topResults = allResults.slice(0, 10);
+
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = '<h2>Top Allocations</h2>';
+
+        const table = document.createElement('table');
+        table.innerHTML = '<tr><th>Drone/Force Chips</th><th>Drill/Rocket Chips</th><th>Durian/Soccer Chips</th><th>Resonance A</th><th>Resonance B</th><th>Resonance C</th><th>Total Score</th><th>Summed Effects</th></tr>';
+
+        topResults.forEach(r => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${r.chips.d}</td><td>${r.chips.r}</td><td>${r.chips.s}</td>
+            <td>${r.resD}</td><td>${r.resR}</td><td>${r.resS}</td><td>${r.score.toFixed(1)}</td>
+            <td class="effects-cell">
+              A: ${r.effects.a || 'None'}<br>
+              B: ${r.effects.b || 'None'}<br>
+              C: ${r.effects.c || 'None'}
+            </td>
+          `;
+          table.appendChild(row);
+        });
+
+        resultsDiv.appendChild(table);
+      }
+
+
+  </script>
+</body>
+</html>
